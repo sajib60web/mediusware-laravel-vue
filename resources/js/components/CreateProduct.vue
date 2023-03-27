@@ -1,6 +1,13 @@
 <template>
     <section>
         <div class="row">
+            <div class="col-md-12 m-2 text-center">
+                <div v-for="(errorArray, idx) in errors" :key="idx">
+                    <div v-for="(allErrors, idx) in errorArray" :key="idx">
+                        <span class="text-danger">{{ allErrors}} </span>
+                    </div>
+                </div>
+            </div>
             <div class="col-md-6">
                 <div class="card shadow mb-4">
                     <div class="card-body">
@@ -100,18 +107,25 @@
 import vue2Dropzone from 'vue2-dropzone'
 import 'vue2-dropzone/dist/vue2Dropzone.min.css'
 import InputTag from 'vue-input-tag'
+import {formDataAssigner} from "../helpers/helper"
 
 export default {
     components: {
         vueDropzone: vue2Dropzone,
         InputTag
     },
+
     props: {
         variants: {
             type: Array,
             required: true
+        },
+        productEdit: {
+            type: Object,
+            required: false
         }
     },
+
     data() {
         return {
             product_name: '',
@@ -128,11 +142,15 @@ export default {
             dropzoneOptions: {
                 url: 'https://httpbin.org/post',
                 thumbnailWidth: 150,
+                autoProcessQueue: false,
                 maxFilesize: 0.5,
                 headers: {"My-Awesome-Header": "header value"}
-            }
+            },
+            errors: [],
+            massages: ''
         }
     },
+
     methods: {
         // it will push a new object into product variant
         newVariant() {
@@ -183,24 +201,67 @@ export default {
                 title: this.product_name,
                 sku: this.product_sku,
                 description: this.description,
-                product_image: this.images,
+                // product_image: this.images,
                 product_variant: this.product_variant,
                 product_variant_prices: this.product_variant_prices
             }
 
+            let formData = formDataAssigner(new FormData, product);
 
-            axios.post('/product', product).then(response => {
-                console.log(response.data);
-            }).catch(error => {
-                console.log(error);
-            })
+            if (this.$refs.myVueDropzone.getQueuedFiles().length) {
+                this.$refs.myVueDropzone.getQueuedFiles().forEach(el => {
+                    formData.append('product_image[]', el);
+                })
+            }
 
-            console.log(product);
+            if (this.productEdit) {
+                formData.append('_method', 'patch');
+                axios.post('/product/' + this.productEdit.id, formData).then(response => {
+                    window.location.replace('/product')
+                    // console.log(response.data);
+                }).catch(error => {
+                    this.errors = error.response.data.errors;
+                    console.log(error);
+                })
+            } else {
+                axios.post('/product', formData).then(response => {
+                    window.location.replace('/product')
+                    // console.log(response.data);
+                }).catch(error => {
+                    this.errors = error.response.data.errors;
+                    console.log(error);
+                })
+            }
         }
-
-
     },
+
     mounted() {
+        if (this.productEdit) {
+            this.product_variant = [];
+            this.product_name = this.productEdit.title
+            this.product_sku = this.productEdit.sku
+            this.description = this.productEdit.description
+            this.productEdit.images.forEach((item, index) => {
+                let file = {size: 123, name: `${this.product_name}-${index + 1}`, type: "image/png"},
+                    url = `/${item.file_path}`;
+                this.$refs.myVueDropzone.manuallyAddFile(file, url);
+            });
+            this.variants.forEach((item) => {
+                let variant = this.productEdit['product_variants'].filter(varId => varId.variant_id == item.id);
+                if (variant.length) {
+                    let productVarient = {
+                        option: item.id,
+                        tags: variant.map(element => element.variant)
+                    }
+                    this.product_variant.push(productVarient);
+                }
+            });
+            this.checkVariant();
+            for (let i = 0; i < this.product_variant_prices.length; i++) {
+                this.product_variant_prices[i].price = this.productEdit['product_variant_price'][i].price;
+                this.product_variant_prices[i].stock = this.productEdit['product_variant_price'][i].stock;
+            }
+        }
         console.log('Component mounted.')
     }
 }

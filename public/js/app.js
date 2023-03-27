@@ -1914,6 +1914,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var vue2_dropzone_dist_vue2Dropzone_min_css__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(vue2_dropzone_dist_vue2Dropzone_min_css__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var vue_input_tag__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue-input-tag */ "./node_modules/vue-input-tag/dist/vueInputTag.common.js");
 /* harmony import */ var vue_input_tag__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(vue_input_tag__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var _helpers_helper__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../helpers/helper */ "./resources/js/helpers/helper.js");
 //
 //
 //
@@ -2012,6 +2013,14 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+
 
 
 
@@ -2024,6 +2033,10 @@ __webpack_require__.r(__webpack_exports__);
     variants: {
       type: Array,
       required: true
+    },
+    productEdit: {
+      type: Object,
+      required: false
     }
   },
   data: function data() {
@@ -2040,11 +2053,14 @@ __webpack_require__.r(__webpack_exports__);
       dropzoneOptions: {
         url: 'https://httpbin.org/post',
         thumbnailWidth: 150,
+        autoProcessQueue: false,
         maxFilesize: 0.5,
         headers: {
           "My-Awesome-Header": "header value"
         }
-      }
+      },
+      errors: [],
+      massages: ''
     };
   },
   methods: {
@@ -2100,23 +2116,84 @@ __webpack_require__.r(__webpack_exports__);
     },
     // store product into database
     saveProduct: function saveProduct() {
+      var _this2 = this;
+
       var product = {
         title: this.product_name,
         sku: this.product_sku,
         description: this.description,
-        product_image: this.images,
+        // product_image: this.images,
         product_variant: this.product_variant,
         product_variant_prices: this.product_variant_prices
       };
-      axios.post('/product', product).then(function (response) {
-        console.log(response.data);
-      })["catch"](function (error) {
-        console.log(error);
-      });
-      console.log(product);
+      var formData = Object(_helpers_helper__WEBPACK_IMPORTED_MODULE_3__["formDataAssigner"])(new FormData(), product);
+
+      if (this.$refs.myVueDropzone.getQueuedFiles().length) {
+        this.$refs.myVueDropzone.getQueuedFiles().forEach(function (el) {
+          formData.append('product_image[]', el);
+        });
+      }
+
+      if (this.productEdit) {
+        formData.append('_method', 'patch');
+        axios.post('/product/' + this.productEdit.id, formData).then(function (response) {
+          window.location.replace('/product'); // console.log(response.data);
+        })["catch"](function (error) {
+          _this2.errors = error.response.data.errors;
+          console.log(error);
+        });
+      } else {
+        axios.post('/product', formData).then(function (response) {
+          window.location.replace('/product'); // console.log(response.data);
+        })["catch"](function (error) {
+          _this2.errors = error.response.data.errors;
+          console.log(error);
+        });
+      }
     }
   },
   mounted: function mounted() {
+    var _this3 = this;
+
+    if (this.productEdit) {
+      this.product_variant = [];
+      this.product_name = this.productEdit.title;
+      this.product_sku = this.productEdit.sku;
+      this.description = this.productEdit.description;
+      this.productEdit.images.forEach(function (item, index) {
+        var file = {
+          size: 123,
+          name: "".concat(_this3.product_name, "-").concat(index + 1),
+          type: "image/png"
+        },
+            url = "/".concat(item.file_path);
+
+        _this3.$refs.myVueDropzone.manuallyAddFile(file, url);
+      });
+      this.variants.forEach(function (item) {
+        var variant = _this3.productEdit['product_variants'].filter(function (varId) {
+          return varId.variant_id == item.id;
+        });
+
+        if (variant.length) {
+          var productVarient = {
+            option: item.id,
+            tags: variant.map(function (element) {
+              return element.variant;
+            })
+          };
+
+          _this3.product_variant.push(productVarient);
+        }
+      });
+      this.checkVariant();
+
+      for (var i = 0; i < this.product_variant_prices.length; i++) {
+        this.product_variant_prices[i].price = this.productEdit['product_variant_price'][i].price;
+        this.product_variant_prices[i].stock = this.productEdit['product_variant_price'][i].stock;
+      }
+    }
+
     console.log('Component mounted.');
   }
 });
@@ -50474,6 +50551,26 @@ var render = function() {
   var _c = _vm._self._c || _h
   return _c("section", [
     _c("div", { staticClass: "row" }, [
+      _c(
+        "div",
+        { staticClass: "col-md-12 m-2 text-center" },
+        _vm._l(_vm.errors, function(errorArray, idx) {
+          return _c(
+            "div",
+            { key: idx },
+            _vm._l(errorArray, function(allErrors, idx) {
+              return _c("div", { key: idx }, [
+                _c("span", { staticClass: "text-danger" }, [
+                  _vm._v(_vm._s(allErrors) + " ")
+                ])
+              ])
+            }),
+            0
+          )
+        }),
+        0
+      ),
+      _vm._v(" "),
       _c("div", { staticClass: "col-md-6" }, [
         _c("div", { staticClass: "card shadow mb-4" }, [
           _c("div", { staticClass: "card-body" }, [
@@ -63056,9 +63153,12 @@ module.exports = function(module) {
 /*!*****************************!*\
   !*** ./resources/js/app.js ***!
   \*****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
+/*! no exports provided */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
 
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var _helpers_helper__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./helpers/helper */ "./resources/js/helpers/helper.js");
 /**
  * First we will load all of this project's JavaScript dependencies which
  * includes Vue and other libraries. It is a great starting point when
@@ -63067,6 +63167,7 @@ module.exports = function(module) {
 __webpack_require__(/*! ./bootstrap */ "./resources/js/bootstrap.js");
 
 __webpack_require__(/*! ./sb-admin */ "./resources/js/sb-admin.js");
+
 
 window.Vue = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.common.js");
 /**
@@ -63211,6 +63312,39 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "staticRenderFns", function() { return _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_CreateProduct_vue_vue_type_template_id_763eab10___WEBPACK_IMPORTED_MODULE_0__["staticRenderFns"]; });
 
 
+
+/***/ }),
+
+/***/ "./resources/js/helpers/helper.js":
+/*!****************************************!*\
+  !*** ./resources/js/helpers/helper.js ***!
+  \****************************************/
+/*! exports provided: formDataAssigner */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "formDataAssigner", function() { return formDataAssigner; });
+var formDataAssigner = function formDataAssigner() {
+  var formData = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new FormData();
+  var dataObject = arguments.length > 1 ? arguments[1] : undefined;
+  Object.keys(dataObject).map(function (key) {
+    if (dataObject[key] && !dataObject[key].length > 0 && Object.keys(dataObject[key]).length > 0) {
+      Object.keys(dataObject[key]).map(function (childKey) {
+        return formData.append(key + "[".concat(childKey, "]"), dataObject[key][childKey]);
+      });
+    } else if (Array.isArray(dataObject[key])) {
+      dataObject[key].map(function (el, index) {
+        Object.keys(el).map(function (objectKeys) {
+          formData.append(key + "[".concat(index, "][").concat(objectKeys, "]"), el[objectKeys]);
+        });
+      });
+    } else {
+      return formData.append(key, dataObject[key]);
+    }
+  });
+  return formData;
+};
 
 /***/ }),
 
